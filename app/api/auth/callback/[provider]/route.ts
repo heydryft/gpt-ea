@@ -1,0 +1,147 @@
+import { NextRequest } from "next/server";
+import { createErrorResponse, createSuccessResponse } from "@/lib/auth";
+import { supabaseAdmin } from "@/lib/supabase";
+import { isTokenExpired } from "@/lib/tokens";
+import { getProvider } from "@/lib/providers";
+import type { Database } from "@/lib/database.types";
+
+export async function GET(
+    request: NextRequest,
+    { params }: { params: Promise<{ provider: string }> }
+) {
+    const searchParams = request.nextUrl.searchParams;
+    const code = searchParams.get("code");
+    const state = searchParams.get("state");
+    const { provider: providerName } = await params;
+
+    if (!code || !state) {
+        return createErrorResponse("Missing code or state parameter");
+    }
+
+    try {
+        // The state parameter is the onboarding token
+        const token = state;
+
+        // Fetch onboarding token from database
+        const { data: onboardingToken, error: tokenError } = await supabaseAdmin
+            .from("onboarding_tokens")
+            .select("*")
+            .eq("token", token)
+            .single();
+
+        if (tokenError || !onboardingToken) {
+            return createErrorResponse("Invalid or expired token", 404);
+        }
+
+        // Type assertion to help TypeScript
+        const validToken: Database["public"]["Tables"]["onboarding_tokens"]["Row"] = onboardingToken;
+
+        // Verify the provider matches
+        if (validToken.provider !== providerName) {
+            return createErrorResponse("Provider mismatch", 400);
+        }
+
+        // Check if token has expired
+        if (isTokenExpired(validToken.expires_at)) {
+            await supabaseAdmin
+                .from("onboarding_tokens")
+                .delete()
+                .eq("token", token);
+
+            return createErrorResponse("Token has expired", 401);
+        }
+
+        // Get the OAuth provider
+        const provider = getProvider(providerName);
+        if (!provider) {
+            return createErrorResponse(`Invalid provider: ${providerName}`);
+        }
+
+        // Exchange code for access token
+        const tokenResponse = await provider.exchangeCodeForToken(code);
+
+        // Calculate token expiration
+        let expiresAt: string | null = null;
+        if (tokenResponse.expires_in) {
+            const expiry = new Date();
+            expiry.setSeconds(expiry.getSeconds() + tokenResponse.expires_in);
+            expiresAt = expiry.toISOString();
+        }
+
+        // Get user info if available
+        let metadata: any = {};
+        if (provider.getUserInfo && tokenResponse.access_token) {
+            try {
+                const userInfo = await provider.getUserInfo(tokenResponse.access_token);
+                metadata = userInfo;
+            } catch (error) {
+                console.error("Failed to get user info:", error);
+                // Continue anyway - metadata is optional
+            }
+        }
+
+        // Check if account already exists
+        const { data: existingAccount } = (await supabaseAdmin
+            .from("accounts")
+            .select("id")
+            .eq("chatgpt_user_id", validToken.chatgpt_user_id)
+            .eq("provider", providerName)
+            .eq("label", validToken.label)
+            .single()) as { data: { id: string } | null; error: any };
+
+        if (existingAccount) {
+            // Update existing account
+            const accountId = existingAccount.id;
+            const { error: updateError } = await ((supabaseAdmin
+                .from("accounts")
+                .update as any)({
+                    access_token: tokenResponse.access_token,
+                    refresh_token: tokenResponse.refresh_token || null,
+                    expires_at: expiresAt,
+                    scopes: tokenResponse.scope?.split(" ") || null,
+                    metadata,
+                    enabled: true,
+                }) as any)
+                .eq("id", accountId);
+
+            if (updateError) {
+                console.error("Failed to update account:", updateError);
+                return createErrorResponse("Failed to update account", 500);
+            }
+        } else {
+            // Create new account
+            const { error: insertError } = await (supabaseAdmin
+                .from("accounts")
+                .insert as any)({
+                    chatgpt_user_id: validToken.chatgpt_user_id,
+                    provider: providerName,
+                    label: validToken.label,
+                    access_token: tokenResponse.access_token,
+                    refresh_token: tokenResponse.refresh_token || null,
+                    expires_at: expiresAt,
+                    scopes: tokenResponse.scope?.split(" ") || null,
+                    metadata,
+                    enabled: true,
+                });
+
+            if (insertError) {
+                console.error("Failed to create account:", insertError);
+                return createErrorResponse("Failed to create account", 500);
+            }
+        }
+
+        // Delete the used onboarding token
+        await supabaseAdmin
+            .from("onboarding_tokens")
+            .delete()
+            .eq("token", token);
+
+        return createSuccessResponse({
+            success: true,
+            message: "Account connected successfully",
+        });
+    } catch (error) {
+        console.error("Error in OAuth callback:", error);
+        return createErrorResponse("Internal server error", 500);
+    }
+}
