@@ -17,41 +17,10 @@ export async function GET(request: NextRequest) {
         );
     }
 
-    // Get the ephemeral user ID from ChatGPT's headers
-    const ephemeralUserId = request.headers.get("openai-ephemeral-user-id");
-    const conversationId = request.headers.get("openai-conversation-id");
-
-    if (!ephemeralUserId) {
-        return NextResponse.json(
-            { error: "invalid_request", error_description: "Missing user context" },
-            { status: 400 }
-        );
-    }
-
     try {
-        // Check if we already have a permanent user ID for this ephemeral ID
-        const { data: existingMapping } = (await supabaseAdmin
-            .from("user_mappings")
-            .select("permanent_user_id")
-            .eq("ephemeral_user_id", ephemeralUserId)
-            .single()) as { data: any; error: any };
-
-        let permanentUserId: string;
-
-        if (existingMapping) {
-            // User has been here before - use existing permanent ID
-            permanentUserId = existingMapping.permanent_user_id;
-        } else {
-            // New user - create a permanent ID
-            permanentUserId = `user_${generateSecureToken()}`;
-
-            // Store the mapping
-            await (supabaseAdmin.from("user_mappings").insert as any)({
-                ephemeral_user_id: ephemeralUserId,
-                permanent_user_id: permanentUserId,
-                conversation_id: conversationId,
-            });
-        }
+        // Create a new permanent user ID for this OAuth session
+        // ChatGPT will store the token and use it for all future requests
+        const permanentUserId = `user_${generateSecureToken()}`;
 
         // Generate authorization code
         const authCode = generateSecureToken();
