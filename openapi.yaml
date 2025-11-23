@@ -11,8 +11,8 @@ securitySchemes:
     type: oauth2
     flows:
       authorizationCode:
-        authorizationUrl: https://gpt-ea-indol.vercel.app/oauth/authorize
-        tokenUrl: https://gpt-ea-indol.vercel.app/oauth/token
+        authorizationUrl: https://gpt-ea-indol.vercel.app/api/oauth/authorize
+        tokenUrl: https://gpt-ea-indol.vercel.app/api/oauth/token
         scopes:
           actions: Access to perform actions on your behalf
 

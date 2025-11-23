@@ -7,8 +7,21 @@ const JWT_SECRET = new TextEncoder().encode(process.env.GPT_API_KEY!);
 
 export async function POST(request: NextRequest) {
     try {
-        const body = await request.json();
-        const { grant_type, code, client_id, client_secret, redirect_uri } = body;
+        // ChatGPT sends form data, not JSON
+        const contentType = request.headers.get("content-type");
+        let grant_type, code, client_id, client_secret, redirect_uri;
+
+        if (contentType?.includes("application/x-www-form-urlencoded")) {
+            const formData = await request.formData();
+            grant_type = formData.get("grant_type") as string;
+            code = formData.get("code") as string;
+            client_id = formData.get("client_id") as string;
+            client_secret = formData.get("client_secret") as string;
+            redirect_uri = formData.get("redirect_uri") as string;
+        } else {
+            const body = await request.json();
+            ({ grant_type, code, client_id, client_secret, redirect_uri } = body);
+        }
 
         // Validate grant type
         if (grant_type !== "authorization_code") {
@@ -36,6 +49,7 @@ export async function POST(request: NextRequest) {
             .single()) as { data: any; error: any };
 
         if (codeError || !authCode) {
+            console.error("Code lookup error:", codeError, "Code:", code, "ClientId:", client_id, "RedirectUri:", redirect_uri);
             return NextResponse.json(
                 { error: "invalid_grant", error_description: "Invalid authorization code" },
                 { status: 400 }
