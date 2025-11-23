@@ -38,7 +38,7 @@ In Vercel project settings, add all environment variables:
 NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
 GPT_API_KEY=your-secure-api-key
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
@@ -141,7 +141,7 @@ curl -X POST https://your-app.vercel.app/api/gpt/create-management-link \
 1. Go to Project Settings > API
 2. Copy:
    - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
-   - **anon public** → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - **anon public** → `SUPABASE_ANON_KEY`
    - **service_role** → `SUPABASE_SERVICE_ROLE_KEY` (keep secret!)
 
 ## 🔐 Security Checklist

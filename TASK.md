@@ -399,7 +399,7 @@ GPT_API_KEY=your-secret-api-key
 
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_ANON_KEY=your-supabase-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
 # Gmail (Google OAuth)
