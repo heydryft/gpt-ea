@@ -74,10 +74,10 @@ export const sendEmail: ActionHandler = async (context, params) => {
 };
 
 /**
- * Search for emails in Gmail
+ * Search for emails in Gmail (metadata only - lightweight)
  */
 export const searchEmails: ActionHandler = async (context, params) => {
-    const { query, maxResults = 10 } = params;
+    const { query, maxResults = 50 } = params;
 
     if (!query) {
         return {
@@ -87,7 +87,7 @@ export const searchEmails: ActionHandler = async (context, params) => {
     }
 
     try {
-        // First, get the list of message IDs
+        // Get the list of message IDs
         const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
         url.searchParams.set("q", query);
         url.searchParams.set("maxResults", maxResults.toString());
@@ -109,11 +109,11 @@ export const searchEmails: ActionHandler = async (context, params) => {
         const data = await response.json();
         const messageIds = data.messages || [];
 
-        // Fetch full details for each message
+        // Fetch metadata only (no body) for each message
         const messages = await Promise.all(
             messageIds.map(async (msg: any) => {
                 const msgResponse = await fetch(
-                    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`,
+                    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Date`,
                     {
                         headers: {
                             Authorization: `Bearer ${context.accessToken}`,
@@ -125,32 +125,21 @@ export const searchEmails: ActionHandler = async (context, params) => {
                     return null;
                 }
 
-                const fullMessage = await msgResponse.json();
+                const message = await msgResponse.json();
 
-                // Extract useful fields
-                const headers = fullMessage.payload?.headers || [];
+                // Extract headers
+                const headers = message.payload?.headers || [];
                 const getHeader = (name: string) =>
                     headers.find((h: any) => h.name.toLowerCase() === name.toLowerCase())?.value;
 
-                // Get email body
-                let body = "";
-                const parts = fullMessage.payload?.parts || [fullMessage.payload];
-                for (const part of parts) {
-                    if (part.mimeType === "text/plain" && part.body?.data) {
-                        body = Buffer.from(part.body.data, "base64").toString("utf-8");
-                        break;
-                    }
-                }
-
                 return {
-                    id: fullMessage.id,
-                    threadId: fullMessage.threadId,
-                    subject: getHeader("Subject"),
+                    id: message.id,
+                    threadId: message.threadId,
+                    subject: getHeader("Subject") || "(No subject)",
                     from: getHeader("From"),
                     to: getHeader("To"),
                     date: getHeader("Date"),
-                    snippet: fullMessage.snippet,
-                    body: body || fullMessage.snippet,
+                    snippet: message.snippet,
                 };
             })
         );
@@ -170,7 +159,94 @@ export const searchEmails: ActionHandler = async (context, params) => {
     }
 };
 
+/**
+ * Get full email content by ID
+ */
+export const getEmailContent: ActionHandler = async (context, params) => {
+    const { messageIds } = params;
+
+    if (!messageIds || !Array.isArray(messageIds) || messageIds.length === 0) {
+        return {
+            success: false,
+            error: "Missing required field: messageIds (array)",
+        };
+    }
+
+    try {
+        // Fetch full content for each message ID
+        const messages = await Promise.all(
+            messageIds.map(async (id: string) => {
+                const msgResponse = await fetch(
+                    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=full`,
+                    {
+                        headers: {
+                            Authorization: `Bearer ${context.accessToken}`,
+                        },
+                    }
+                );
+
+                if (!msgResponse.ok) {
+                    return {
+                        id,
+                        error: "Failed to fetch message",
+                    };
+                }
+
+                const fullMessage = await msgResponse.json();
+
+                // Extract headers
+                const headers = fullMessage.payload?.headers || [];
+                const getHeader = (name: string) =>
+                    headers.find((h: any) => h.name.toLowerCase() === name.toLowerCase())?.value;
+
+                // Get email body
+                let body = "";
+                const parts = fullMessage.payload?.parts || [fullMessage.payload];
+                for (const part of parts) {
+                    if (part.mimeType === "text/plain" && part.body?.data) {
+                        body = Buffer.from(part.body.data, "base64").toString("utf-8");
+                        break;
+                    }
+                }
+
+                // If no plain text, try HTML
+                if (!body) {
+                    for (const part of parts) {
+                        if (part.mimeType === "text/html" && part.body?.data) {
+                            body = Buffer.from(part.body.data, "base64").toString("utf-8");
+                            break;
+                        }
+                    }
+                }
+
+                return {
+                    id: fullMessage.id,
+                    threadId: fullMessage.threadId,
+                    subject: getHeader("Subject") || "(No subject)",
+                    from: getHeader("From"),
+                    to: getHeader("To"),
+                    date: getHeader("Date"),
+                    body: body || fullMessage.snippet || "(No content)",
+                };
+            })
+        );
+
+        return {
+            success: true,
+            data: {
+                messages,
+            },
+        };
+    } catch (error) {
+        return {
+            success: false,
+            error: `Error fetching email content: ${error}`,
+        };
+    }
+};
+
 export const gmailActions = {
     "send-email": sendEmail,
     "search-emails": searchEmails,
+    "get-email-content": getEmailContent,
 };

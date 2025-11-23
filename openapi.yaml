@@ -212,7 +212,38 @@ paths:
                       description: Maximum number of results to return
       responses:
         "200":
-          description: Search results
+          description: Search results (metadata only - subjects, senders, dates, snippets)
+
+  /api/gpt/actions/gmail/get-email-content:
+    post:
+      operationId: gmailGetEmailContent
+      summary: Get full content of specific emails by ID
+      description: Fetches the full body content for one or more email message IDs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - accountId
+                - params
+              properties:
+                accountId:
+                  type: string
+                params:
+                  type: object
+                  required:
+                    - messageIds
+                  properties:
+                    messageIds:
+                      type: array
+                      items:
+                        type: string
+                      description: Array of Gmail message IDs to fetch content for
+      responses:
+        "200":
+          description: Full email content including body
 
   /api/gpt/actions/slack/post-message:
     post:
@@ -362,3 +393,57 @@ paths:
       responses:
         "200":
           description: List of teams
+
+  /api/gpt/search-all-emails:
+    post:
+      operationId: searchAllEmails
+      summary: Search emails across all connected Gmail accounts
+      description: Searches for emails in all enabled Gmail accounts and returns aggregated results
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+                  description: Gmail search query (default is "newer_than:2d" for last 2 days)
+                  default: "newer_than:2d"
+                maxResults:
+                  type: integer
+                  description: Maximum number of results per account
+                  default: 20
+      responses:
+        "200":
+          description: Aggregated email search results from all accounts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accounts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        accountId:
+                          type: string
+                        label:
+                          type: string
+                        email:
+                          type: string
+                        success:
+                          type: boolean
+                        messages:
+                          type: array
+                          items:
+                            type: object
+                        error:
+                          type: string
+                  totalEmails:
+                    type: integer
+                  successfulAccounts:
+                    type: integer
+                  totalAccounts:
+                    type: integer
