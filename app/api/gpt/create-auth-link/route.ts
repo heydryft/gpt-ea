@@ -6,7 +6,7 @@ import { isValidProvider } from "@/lib/providers";
 
 export async function POST(request: NextRequest) {
     // Validate GPT authentication
-    const authResult = validateGPTAuth(request);
+    const authResult = await validateGPTAuth(request);
     if (!authResult.success) {
         return createErrorResponse(authResult.error!, 401);
     }

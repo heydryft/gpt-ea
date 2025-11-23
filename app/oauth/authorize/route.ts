@@ -30,11 +30,11 @@ export async function GET(request: NextRequest) {
 
     try {
         // Check if we already have a permanent user ID for this ephemeral ID
-        const { data: existingMapping } = await supabaseAdmin
+        const { data: existingMapping } = (await supabaseAdmin
             .from("user_mappings")
             .select("permanent_user_id")
             .eq("ephemeral_user_id", ephemeralUserId)
-            .single();
+            .single()) as { data: any; error: any };
 
         let permanentUserId: string;
 
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
             permanentUserId = `user_${generateSecureToken()}`;
 
             // Store the mapping
-            await supabaseAdmin.from("user_mappings").insert({
+            await (supabaseAdmin.from("user_mappings").insert as any)({
                 ephemeral_user_id: ephemeralUserId,
                 permanent_user_id: permanentUserId,
                 conversation_id: conversationId,
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
         // Store authorization code
-        await supabaseAdmin.from("oauth_codes").insert({
+        await (supabaseAdmin.from("oauth_codes").insert as any)({
             code: authCode,
             permanent_user_id: permanentUserId,
             client_id: clientId,

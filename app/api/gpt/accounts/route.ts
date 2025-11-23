@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 
 export async function GET(request: NextRequest) {
     // Validate GPT authentication
-    const authResult = validateGPTAuth(request);
+    const authResult = await validateGPTAuth(request);
     if (!authResult.success) {
         return createErrorResponse(authResult.error!, 401);
     }

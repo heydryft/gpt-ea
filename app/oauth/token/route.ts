@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
         const refreshExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // 90 days
 
         // Store refresh token
-        await supabaseAdmin.from("oauth_tokens").insert({
+        await (supabaseAdmin.from("oauth_tokens").insert as any)({
             refresh_token: refreshToken,
             permanent_user_id: authCode.permanent_user_id,
             client_id: client_id,

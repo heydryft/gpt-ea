@@ -6,16 +6,15 @@ info:
 servers:
   - url: https://gpt-ea-indol.vercel.app
 
-components:
-  securitySchemes:
-    OAuth2:
-      type: oauth2
-      flows:
-        authorizationCode:
-          authorizationUrl: https://gpt-ea-indol.vercel.app/oauth/authorize
-          tokenUrl: https://gpt-ea-indol.vercel.app/oauth/token
-          scopes:
-            actions: Access to perform actions on your behalf
+securitySchemes:
+  OAuth2:
+    type: oauth2
+    flows:
+      authorizationCode:
+        authorizationUrl: https://gpt-ea-indol.vercel.app/oauth/authorize
+        tokenUrl: https://gpt-ea-indol.vercel.app/oauth/token
+        scopes:
+          actions: Access to perform actions on your behalf
 
 security:
   - OAuth2: [actions]

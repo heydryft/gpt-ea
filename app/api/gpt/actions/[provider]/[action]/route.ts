@@ -8,7 +8,7 @@ export async function POST(
     { params }: { params: Promise<{ provider: string; action: string }> }
 ) {
     // Validate GPT authentication
-    const authResult = validateGPTAuth(request);
+    const authResult = await validateGPTAuth(request);
     if (!authResult.success) {
         return createErrorResponse(authResult.error!, 401);
     }
