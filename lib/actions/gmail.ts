@@ -87,6 +87,7 @@ export const searchEmails: ActionHandler = async (context, params) => {
     }
 
     try {
+        // First, get the list of message IDs
         const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
         url.searchParams.set("q", query);
         url.searchParams.set("maxResults", maxResults.toString());
@@ -106,11 +107,58 @@ export const searchEmails: ActionHandler = async (context, params) => {
         }
 
         const data = await response.json();
+        const messageIds = data.messages || [];
+
+        // Fetch full details for each message
+        const messages = await Promise.all(
+            messageIds.map(async (msg: any) => {
+                const msgResponse = await fetch(
+                    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`,
+                    {
+                        headers: {
+                            Authorization: `Bearer ${context.accessToken}`,
+                        },
+                    }
+                );
+
+                if (!msgResponse.ok) {
+                    return null;
+                }
+
+                const fullMessage = await msgResponse.json();
+
+                // Extract useful fields
+                const headers = fullMessage.payload?.headers || [];
+                const getHeader = (name: string) =>
+                    headers.find((h: any) => h.name.toLowerCase() === name.toLowerCase())?.value;
+
+                // Get email body
+                let body = "";
+                const parts = fullMessage.payload?.parts || [fullMessage.payload];
+                for (const part of parts) {
+                    if (part.mimeType === "text/plain" && part.body?.data) {
+                        body = Buffer.from(part.body.data, "base64").toString("utf-8");
+                        break;
+                    }
+                }
+
+                return {
+                    id: fullMessage.id,
+                    threadId: fullMessage.threadId,
+                    subject: getHeader("Subject"),
+                    from: getHeader("From"),
+                    to: getHeader("To"),
+                    date: getHeader("Date"),
+                    snippet: fullMessage.snippet,
+                    body: body || fullMessage.snippet,
+                };
+            })
+        );
 
         return {
             success: true,
             data: {
-                messages: data.messages || [],
+                messages: messages.filter(Boolean),
                 resultSizeEstimate: data.resultSizeEstimate,
             },
         };
