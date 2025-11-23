@@ -1,5 +1,9 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { constantTimeCompare } from "./tokens";
+import { jwtVerify } from "jose";
+
+const GPT_API_KEY = process.env.GPT_API_KEY!;
+const JWT_SECRET = new TextEncoder().encode(process.env.GPT_API_KEY!);
 
 export interface GPTAuthResult {
     success: boolean;
@@ -11,7 +15,27 @@ export interface GPTAuthResult {
  * Validate GPT API request headers
  * Checks for x-api-key and x-gpt-user-id headers
  */
-export function validateGPTAuth(request: NextRequest): GPTAuthResult {
+export async function validateGPTAuth(request: NextRequest): Promise<GPTAuthResult> {
+    // Check for OAuth Bearer token first
+    const authHeader = request.headers.get("authorization");
+
+    if (authHeader?.startsWith("Bearer ")) {
+        const token = authHeader.substring(7);
+
+        try {
+            // Verify JWT token
+            const { payload } = await jwtVerify(token, JWT_SECRET);
+
+            if (payload.sub && payload.type === "access_token") {
+                return { success: true, chatgptUserId: payload.sub as string };
+            }
+        } catch (error) {
+            console.error("JWT verification failed:", error);
+            return { success: false, error: "Invalid access token" };
+        }
+    }
+
+    // Fallback to API key authentication (for backward compatibility)
     const apiKey = request.headers.get("x-api-key");
     const chatgptUserId = request.headers.get("x-gpt-user-id");
 

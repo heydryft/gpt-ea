@@ -1,0 +1,365 @@
+openapi: 3.1.0
+info:
+  title: Integration Hub API
+  description: API for managing external integrations (Gmail, Slack, Linear, Zoho)
+  version: 1.0.0
+servers:
+  - url: https://gpt-ea-indol.vercel.app
+
+components:
+  securitySchemes:
+    OAuth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://gpt-ea-indol.vercel.app/oauth/authorize
+          tokenUrl: https://gpt-ea-indol.vercel.app/oauth/token
+          scopes:
+            actions: Access to perform actions on your behalf
+
+security:
+  - OAuth2: [actions]
+
+paths:
+  /api/gpt/create-auth-link:
+    post:
+      operationId: createAuthLink
+      summary: Create an OAuth authorization link for a provider
+      description: Generates a link for the user to authorize access to an external service
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - provider
+                - label
+              properties:
+                provider:
+                  type: string
+                  enum: [gmail, slack, linear, zoho]
+                  description: The service to connect
+                label:
+                  type: string
+                  description: A descriptive label for this connection (e.g., "work", "personal")
+      responses:
+        "200":
+          description: Auth link created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authUrl:
+                    type: string
+                    description: URL for user to authorize the integration
+
+  /api/gpt/create-management-link:
+    post:
+      operationId: createManagementLink
+      summary: Create a link to the integrations management page
+      description: Generates a secure link where users can view and manage all their integrations
+      responses:
+        "200":
+          description: Management link created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  managementUrl:
+                    type: string
+                    description: URL to the integrations management page
+
+  /api/gpt/accounts:
+    get:
+      operationId: listAccounts
+      summary: List all connected integration accounts
+      description: Returns all integrations connected by this user
+      responses:
+        "200":
+          description: List of accounts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accounts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        provider:
+                          type: string
+                        label:
+                          type: string
+                        enabled:
+                          type: boolean
+                        metadata:
+                          type: object
+
+  /api/gpt/accounts/{id}/toggle:
+    post:
+      operationId: toggleAccount
+      summary: Enable or disable an integration account
+      description: Toggles the enabled status of an account
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Account toggled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  enabled:
+                    type: boolean
+
+  /api/gpt/accounts/{id}:
+    delete:
+      operationId: deleteAccount
+      summary: Remove an integration account
+      description: Permanently removes an integration and revokes access
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Account deleted successfully
+
+  /api/gpt/actions/gmail/send-email:
+    post:
+      operationId: gmailSendEmail
+      summary: Send an email via Gmail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - accountId
+                - params
+              properties:
+                accountId:
+                  type: string
+                  description: The Gmail account ID to use
+                params:
+                  type: object
+                  required:
+                    - to
+                    - subject
+                    - body
+                  properties:
+                    to:
+                      type: string
+                      description: Recipient email address
+                    subject:
+                      type: string
+                      description: Email subject
+                    body:
+                      type: string
+                      description: Email body (plain text or HTML)
+                    cc:
+                      type: string
+                      description: CC recipients (optional)
+                    bcc:
+                      type: string
+                      description: BCC recipients (optional)
+      responses:
+        "200":
+          description: Email sent successfully
+
+  /api/gpt/actions/gmail/search-emails:
+    post:
+      operationId: gmailSearchEmails
+      summary: Search for emails in Gmail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - accountId
+                - params
+              properties:
+                accountId:
+                  type: string
+                params:
+                  type: object
+                  required:
+                    - query
+                  properties:
+                    query:
+                      type: string
+                      description: Gmail search query (e.g., "from:john@example.com")
+                    maxResults:
+                      type: integer
+                      default: 10
+                      description: Maximum number of results to return
+      responses:
+        "200":
+          description: Search results
+
+  /api/gpt/actions/slack/post-message:
+    post:
+      operationId: slackPostMessage
+      summary: Post a message to a Slack channel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - accountId
+                - params
+              properties:
+                accountId:
+                  type: string
+                params:
+                  type: object
+                  required:
+                    - channel
+                    - text
+                  properties:
+                    channel:
+                      type: string
+                      description: Channel ID or name (e.g., "#general" or "C1234567890")
+                    text:
+                      type: string
+                      description: Message text
+      responses:
+        "200":
+          description: Message posted successfully
+
+  /api/gpt/actions/slack/list-channels:
+    post:
+      operationId: slackListChannels
+      summary: List available Slack channels
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - accountId
+              properties:
+                accountId:
+                  type: string
+                params:
+                  type: object
+                  properties:
+                    types:
+                      type: string
+                      default: "public_channel,private_channel"
+                      description: Types of channels to list
+      responses:
+        "200":
+          description: List of channels
+
+  /api/gpt/actions/linear/create-issue:
+    post:
+      operationId: linearCreateIssue
+      summary: Create a new issue in Linear
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - accountId
+                - params
+              properties:
+                accountId:
+                  type: string
+                params:
+                  type: object
+                  required:
+                    - teamId
+                    - title
+                  properties:
+                    teamId:
+                      type: string
+                      description: Linear team ID
+                    title:
+                      type: string
+                      description: Issue title
+                    description:
+                      type: string
+                      description: Issue description (optional)
+                    priority:
+                      type: integer
+                      description: Priority (0=None, 1=Urgent, 2=High, 3=Medium, 4=Low)
+      responses:
+        "200":
+          description: Issue created successfully
+
+  /api/gpt/actions/linear/search-issues:
+    post:
+      operationId: linearSearchIssues
+      summary: Search for issues in Linear
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - accountId
+                - params
+              properties:
+                accountId:
+                  type: string
+                params:
+                  type: object
+                  required:
+                    - query
+                  properties:
+                    query:
+                      type: string
+                      description: Search query
+                    limit:
+                      type: integer
+                      default: 10
+                      description: Maximum number of results
+      responses:
+        "200":
+          description: Search results
+
+  /api/gpt/actions/linear/list-teams:
+    post:
+      operationId: linearListTeams
+      summary: List all Linear teams
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - accountId
+              properties:
+                accountId:
+                  type: string
+                params:
+                  type: object
+      responses:
+        "200":
+          description: List of teams
