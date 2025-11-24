@@ -57,18 +57,16 @@ export class ZohoProvider implements OAuthProvider {
     async exchangeCodeForToken(code: string): Promise<TokenResponse> {
         const { clientId, clientSecret, redirectUri } = this.getConfig();
 
-        const response = await fetch(ZOHO_TOKEN_URL, {
+        // Zoho expects parameters as query string, not in body
+        const url = new URL(ZOHO_TOKEN_URL);
+        url.searchParams.set("grant_type", "authorization_code");
+        url.searchParams.set("client_id", clientId);
+        url.searchParams.set("client_secret", clientSecret);
+        url.searchParams.set("redirect_uri", redirectUri);
+        url.searchParams.set("code", code);
+
+        const response = await fetch(url.toString(), {
             method: "POST",
-            headers: {
-                "Content-Type": "application/x-www-form-urlencoded",
-            },
-            body: new URLSearchParams({
-                client_id: clientId,
-                client_secret: clientSecret,
-                code,
-                grant_type: "authorization_code",
-                redirect_uri: redirectUri,
-            }),
         });
 
         if (!response.ok) {
@@ -94,17 +92,15 @@ export class ZohoProvider implements OAuthProvider {
     async refreshAccessToken(refreshToken: string): Promise<TokenResponse> {
         const { clientId, clientSecret } = this.getConfig();
 
-        const response = await fetch(ZOHO_TOKEN_URL, {
+        // Zoho expects parameters as query string
+        const url = new URL(ZOHO_TOKEN_URL);
+        url.searchParams.set("grant_type", "refresh_token");
+        url.searchParams.set("client_id", clientId);
+        url.searchParams.set("client_secret", clientSecret);
+        url.searchParams.set("refresh_token", refreshToken);
+
+        const response = await fetch(url.toString(), {
             method: "POST",
-            headers: {
-                "Content-Type": "application/x-www-form-urlencoded",
-            },
-            body: new URLSearchParams({
-                client_id: clientId,
-                client_secret: clientSecret,
-                refresh_token: refreshToken,
-                grant_type: "refresh_token",
-            }),
         });
 
         if (!response.ok) {

@@ -17,7 +17,9 @@ export async function GET(
     console.log(`OAuth callback for ${providerName}:`, {
         hasCode: !!code,
         hasState: !!state,
-        codePrefix: code?.substring(0, 10) + "...",
+        codeLength: code?.length,
+        codePrefix: code?.substring(0, 15) + "...",
+        codeSuffix: "..." + code?.substring(code.length - 15),
     });
 
     if (!code || !state) {
