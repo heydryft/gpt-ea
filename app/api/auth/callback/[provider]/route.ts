@@ -14,50 +14,25 @@ export async function GET(
     const state = searchParams.get("state");
     const { provider: providerName } = await params;
 
+    console.log(`OAuth callback for ${providerName}:`, {
+        hasCode: !!code,
+        hasState: !!state,
+        codePrefix: code?.substring(0, 10) + "...",
+    });
+
     if (!code || !state) {
         return createErrorResponse("Missing code or state parameter");
     }
 
     try {
-        // The state parameter is the onboarding token
-        const token = state;
-
-        // Fetch onboarding token from database
-        const { data: onboardingToken, error: tokenError } = await supabaseAdmin
-            .from("onboarding_tokens")
-            .select("*")
-            .eq("token", token)
-            .single();
-
-        if (tokenError || !onboardingToken) {
-            return createErrorResponse("Invalid or expired token", 404);
-        }
-
-        // Type assertion to help TypeScript
-        const validToken: Database["public"]["Tables"]["onboarding_tokens"]["Row"] = onboardingToken;
-
-        // Verify the provider matches
-        if (validToken.provider !== providerName) {
-            return createErrorResponse("Provider mismatch", 400);
-        }
-
-        // Check if token has expired
-        if (isTokenExpired(validToken.expires_at)) {
-            await supabaseAdmin
-                .from("onboarding_tokens")
-                .delete()
-                .eq("token", token);
-
-            return createErrorResponse("Token has expired", 401);
-        }
-
-        // Get the OAuth provider
+        // Get the OAuth provider FIRST (fast, no I/O)
         const provider = getProvider(providerName);
         if (!provider) {
             return createErrorResponse(`Invalid provider: ${providerName}`);
         }
 
-        // Exchange code for access token
+        // Exchange code for access token IMMEDIATELY before it expires
+        // Authorization codes expire in ~60 seconds and can only be used once
         let tokenResponse;
         try {
             tokenResponse = await provider.exchangeCodeForToken(code);
@@ -72,6 +47,35 @@ export async function GET(
         }
 
         console.log(`Successfully exchanged code for ${providerName} token, expires in: ${tokenResponse.expires_in}s`);
+
+        // NOW validate the onboarding token (after we have the OAuth tokens)
+        const token = state;
+        const { data: onboardingToken, error: tokenError } = await supabaseAdmin
+            .from("onboarding_tokens")
+            .select("*")
+            .eq("token", token)
+            .single();
+
+        if (tokenError || !onboardingToken) {
+            console.error("Invalid onboarding token after successful OAuth");
+            return createErrorResponse("Invalid or expired token", 404);
+        }
+
+        const validToken: Database["public"]["Tables"]["onboarding_tokens"]["Row"] = onboardingToken;
+
+        // Verify the provider matches
+        if (validToken.provider !== providerName) {
+            return createErrorResponse("Provider mismatch", 400);
+        }
+
+        // Check if token has expired
+        if (isTokenExpired(validToken.expires_at)) {
+            await supabaseAdmin
+                .from("onboarding_tokens")
+                .delete()
+                .eq("token", token);
+            return createErrorResponse("Token has expired", 401);
+        }
 
         // Calculate token expiration
         let expiresAt: string | null = null;
