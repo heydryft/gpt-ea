@@ -1,9 +1,12 @@
 import type { OAuthProvider, TokenResponse } from "./types";
 
-const ZOHO_AUTH_URL = "https://accounts.zoho.com/oauth/v2/auth";
-const ZOHO_TOKEN_URL = "https://accounts.zoho.com/oauth/v2/token";
-const ZOHO_REVOKE_URL = "https://accounts.zoho.com/oauth/v2/token/revoke";
-const ZOHO_USER_INFO_URL = "https://accounts.zoho.com/oauth/user/info";
+// Support different Zoho data centers via environment variable
+// Default to .com (US), but can be set to .eu, .in, .com.au, .com.cn
+const ZOHO_DOMAIN = process.env.ZOHO_DOMAIN || "zoho.com";
+const ZOHO_AUTH_URL = `https://accounts.${ZOHO_DOMAIN}/oauth/v2/auth`;
+const ZOHO_TOKEN_URL = `https://accounts.${ZOHO_DOMAIN}/oauth/v2/token`;
+const ZOHO_REVOKE_URL = `https://accounts.${ZOHO_DOMAIN}/oauth/v2/token/revoke`;
+const ZOHO_USER_INFO_URL = `https://accounts.${ZOHO_DOMAIN}/oauth/user/info`;
 
 const ZOHO_SCOPES = [
     "ZohoMail.messages.ALL",
@@ -21,6 +24,13 @@ export class ZohoProvider implements OAuthProvider {
         if (!clientId || !clientSecret) {
             throw new Error("Zoho OAuth credentials not configured");
         }
+
+        console.log("Zoho config:", {
+            clientIdLength: clientId.length,
+            clientIdPrefix: clientId.substring(0, 10) + "...",
+            hasClientSecret: !!clientSecret,
+            redirectUri,
+        });
 
         return { clientId, clientSecret, redirectUri };
     }
