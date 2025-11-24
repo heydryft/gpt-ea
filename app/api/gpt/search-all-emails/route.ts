@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
                         return {
                             accountId: account.id,
                             label: account.label,
-                            email: account.email,
+                            email: account.metadata?.email || account.metadata?.emailAddress || null,
                             success: false,
                             messages: [],
                             error: refreshResult.error || "Failed to refresh token",
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
                     return {
                         accountId: activeAccount.id,
                         label: activeAccount.label,
-                        email: activeAccount.email,
+                        email: activeAccount.metadata?.email || activeAccount.metadata?.emailAddress || null,
                         success: result.success,
                         messages: result.success ? result.data?.messages || [] : [],
                         error: result.success ? null : result.error,
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
                     return {
                         accountId: account.id,
                         label: account.label,
-                        email: account.email,
+                        email: account.metadata?.email || account.metadata?.emailAddress || null,
                         success: false,
                         messages: [],
                         error: `Error searching account: ${error}`,

@@ -58,7 +58,20 @@ export async function GET(
         }
 
         // Exchange code for access token
-        const tokenResponse = await provider.exchangeCodeForToken(code);
+        let tokenResponse;
+        try {
+            tokenResponse = await provider.exchangeCodeForToken(code);
+        } catch (error) {
+            console.error("Failed to exchange code for token:", error);
+            return createErrorResponse(`Failed to exchange authorization code: ${error}`, 500);
+        }
+
+        if (!tokenResponse.access_token) {
+            console.error("No access token in response:", tokenResponse);
+            return createErrorResponse("No access token received from provider", 500);
+        }
+
+        console.log(`Successfully exchanged code for ${providerName} token, expires in: ${tokenResponse.expires_in}s`);
 
         // Calculate token expiration
         let expiresAt: string | null = null;
@@ -74,6 +87,7 @@ export async function GET(
             try {
                 const userInfo = await provider.getUserInfo(tokenResponse.access_token);
                 metadata = userInfo;
+                console.log(`Got user info for ${providerName}:`, { email: metadata.email || metadata.emailAddress, accountId: metadata.accountId });
             } catch (error) {
                 console.error("Failed to get user info:", error);
                 // Continue anyway - metadata is optional
@@ -108,6 +122,8 @@ export async function GET(
                 console.error("Failed to update account:", updateError);
                 return createErrorResponse("Failed to update account", 500);
             }
+
+            console.log(`Successfully updated existing ${providerName} account:`, accountId);
         } else {
             // Create new account
             const { error: insertError } = await (supabaseAdmin
