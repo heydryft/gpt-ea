@@ -38,7 +38,10 @@ export class ZohoProvider implements OAuthProvider {
             prompt: "consent",
         });
 
-        return `${ZOHO_AUTH_URL}?${params.toString()}`;
+        const authUrl = `${ZOHO_AUTH_URL}?${params.toString()}`;
+        console.log("Generated Zoho auth URL with scopes:", ZOHO_SCOPES);
+
+        return authUrl;
     }
 
     async exchangeCodeForToken(code: string): Promise<TokenResponse> {
@@ -60,10 +63,22 @@ export class ZohoProvider implements OAuthProvider {
 
         if (!response.ok) {
             const error = await response.text();
-            throw new Error(`Failed to exchange code for token: ${error}`);
+            console.error("Zoho token exchange failed:", {
+                status: response.status,
+                statusText: response.statusText,
+                error,
+            });
+            throw new Error(`Failed to exchange code for token (${response.status}): ${error}`);
         }
 
-        return response.json();
+        const data = await response.json();
+        console.log("Zoho token response:", {
+            hasAccessToken: !!data.access_token,
+            hasRefreshToken: !!data.refresh_token,
+            expiresIn: data.expires_in
+        });
+
+        return data;
     }
 
     async refreshAccessToken(refreshToken: string): Promise<TokenResponse> {
