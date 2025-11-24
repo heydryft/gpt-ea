@@ -394,6 +394,120 @@ paths:
         "200":
           description: List of teams
 
+  /api/gpt/actions/zoho/send-email:
+    post:
+      operationId: zohoSendEmail
+      summary: Send an email via Zoho Mail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - accountId
+                - params
+              properties:
+                accountId:
+                  type: string
+                  description: The Zoho account ID to use
+                params:
+                  type: object
+                  required:
+                    - to
+                    - subject
+                    - body
+                  properties:
+                    to:
+                      type: string
+                      description: Recipient email address
+                    subject:
+                      type: string
+                      description: Email subject
+                    body:
+                      type: string
+                      description: Email body (HTML or plain text)
+                    cc:
+                      type: string
+                      description: CC recipients (optional)
+                    bcc:
+                      type: string
+                      description: BCC recipients (optional)
+                    fromAddress:
+                      type: string
+                      description: From address (optional, uses default if not specified)
+      responses:
+        "200":
+          description: Email sent successfully
+
+  /api/gpt/actions/zoho/search-emails:
+    post:
+      operationId: zohoSearchEmails
+      summary: Search for emails in Zoho Mail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - accountId
+                - params
+              properties:
+                accountId:
+                  type: string
+                params:
+                  type: object
+                  required:
+                    - query
+                  properties:
+                    query:
+                      type: string
+                      description: Search query
+                    maxResults:
+                      type: integer
+                      default: 50
+                      description: Maximum number of results to return
+      responses:
+        "200":
+          description: Search results (metadata only - subjects, senders, dates, snippets)
+
+  /api/gpt/actions/zoho/get-email-content:
+    post:
+      operationId: zohoGetEmailContent
+      summary: Get full content of specific emails by ID
+      description: Fetches the full body content for one or more email message IDs from Zoho Mail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - accountId
+                - params
+              properties:
+                accountId:
+                  type: string
+                params:
+                  type: object
+                  required:
+                    - messageIds
+                  properties:
+                    messageIds:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          messageId:
+                            type: string
+                          folderId:
+                            type: string
+                      description: Array of message objects with messageId and folderId (folderId from search results)
+      responses:
+        "200":
+          description: Full email content including body
+
   /api/gpt/search-all-emails:
     post:
       operationId: searchAllEmails

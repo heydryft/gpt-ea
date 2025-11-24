@@ -6,9 +6,8 @@ const ZOHO_REVOKE_URL = "https://accounts.zoho.com/oauth/v2/token/revoke";
 const ZOHO_USER_INFO_URL = "https://accounts.zoho.com/oauth/user/info";
 
 const ZOHO_SCOPES = [
-    "ZohoCRM.modules.ALL",
-    "ZohoCRM.settings.ALL",
-    "ZohoCRM.users.READ",
+    "ZohoMail.messages.ALL",
+    "ZohoMail.accounts.READ",
 ];
 
 export class ZohoProvider implements OAuthProvider {
@@ -118,7 +117,37 @@ export class ZohoProvider implements OAuthProvider {
             throw new Error(`Failed to get user info: ${error}`);
         }
 
-        return response.json();
+        const userInfo = await response.json();
+
+        // Try to get Zoho Mail account ID
+        try {
+            const accountsResponse = await fetch(
+                "https://mail.zoho.com/api/accounts",
+                {
+                    headers: {
+                        Authorization: `Zoho-oauthtoken ${accessToken}`,
+                    },
+                }
+            );
+
+            if (accountsResponse.ok) {
+                const accountsData = await accountsResponse.json();
+                const accounts = accountsData.data || [];
+
+                // Get the primary account or first account
+                const primaryAccount = accounts.find((acc: any) => acc.isPrimary) || accounts[0];
+
+                if (primaryAccount) {
+                    userInfo.accountId = primaryAccount.accountId;
+                    userInfo.email = primaryAccount.emailAddress || userInfo.Email;
+                }
+            }
+        } catch (error) {
+            console.error("Failed to get Zoho Mail account ID:", error);
+            // Continue without account ID - it's optional
+        }
+
+        return userInfo;
     }
 }
 

@@ -3,6 +3,7 @@ export interface ActionContext {
     chatgptUserId: string;
     accessToken: string;
     refreshToken?: string | null;
+    metadata?: any;
 }
 
 export interface ActionResult {

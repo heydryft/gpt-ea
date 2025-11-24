@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { validateGPTAuth, createErrorResponse, createSuccessResponse } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { searchEmails } from "@/lib/actions/gmail";
+import { refreshTokenIfNeeded } from "@/lib/token-refresh";
 
 export async function POST(request: NextRequest) {
     // Validate GPT authentication
@@ -41,20 +42,36 @@ export async function POST(request: NextRequest) {
         const results = await Promise.all(
             accounts.map(async (account) => {
                 try {
+                    // Refresh token if needed
+                    const refreshResult = await refreshTokenIfNeeded(account);
+                    if (!refreshResult.success) {
+                        return {
+                            accountId: account.id,
+                            label: account.label,
+                            email: account.email,
+                            success: false,
+                            messages: [],
+                            error: refreshResult.error || "Failed to refresh token",
+                        };
+                    }
+
+                    const activeAccount = refreshResult.account;
+
                     const result = await searchEmails(
                         {
-                            accountId: account.id,
+                            accountId: activeAccount.id,
                             chatgptUserId: chatgptUserId!,
-                            accessToken: account.access_token,
-                            refreshToken: account.refresh_token,
+                            accessToken: activeAccount.access_token,
+                            refreshToken: activeAccount.refresh_token,
+                            metadata: activeAccount.metadata,
                         },
                         { query, maxResults }
                     );
 
                     return {
-                        accountId: account.id,
-                        label: account.label,
-                        email: account.email,
+                        accountId: activeAccount.id,
+                        label: activeAccount.label,
+                        email: activeAccount.email,
                         success: result.success,
                         messages: result.success ? result.data?.messages || [] : [],
                         error: result.success ? null : result.error,

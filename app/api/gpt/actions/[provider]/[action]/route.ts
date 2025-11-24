@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { validateGPTAuth, createErrorResponse, createSuccessResponse } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getAction } from "@/lib/actions";
+import { refreshTokenIfNeeded } from "@/lib/token-refresh";
 
 export async function POST(
     request: NextRequest,
@@ -53,6 +54,15 @@ export async function POST(
             return createErrorResponse("Account has no access token", 400);
         }
 
+        // Refresh token if needed
+        const refreshResult = await refreshTokenIfNeeded(account);
+        if (!refreshResult.success) {
+            return createErrorResponse(refreshResult.error || "Failed to refresh token", 401);
+        }
+
+        // Use the refreshed account (or original if no refresh was needed)
+        const activeAccount = refreshResult.account;
+
         // Get the action handler
         const actionHandler = getAction(provider, action);
         if (!actionHandler) {
@@ -65,10 +75,11 @@ export async function POST(
         // Execute the action
         const result = await actionHandler(
             {
-                accountId: account.id,
+                accountId: activeAccount.id,
                 chatgptUserId: chatgptUserId!,
-                accessToken: account.access_token,
-                refreshToken: account.refresh_token,
+                accessToken: activeAccount.access_token,
+                refreshToken: activeAccount.refresh_token,
+                metadata: activeAccount.metadata,
             },
             actionParams || {}
         );
