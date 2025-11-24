@@ -1,8 +1,8 @@
 import type { OAuthProvider, TokenResponse } from "./types";
 
 // Support different Zoho data centers via environment variable
-// Default to .com (US), but can be set to .eu, .in, .com.au, .com.cn
-const ZOHO_DOMAIN = process.env.ZOHO_DOMAIN || "zoho.com";
+// Default to .in (India), but can be set to .com, .eu, .com.au, .com.cn
+const ZOHO_DOMAIN = process.env.ZOHO_DOMAIN || "zoho.in";
 const ZOHO_AUTH_URL = `https://accounts.${ZOHO_DOMAIN}/oauth/v2/auth`;
 const ZOHO_TOKEN_URL = `https://accounts.${ZOHO_DOMAIN}/oauth/v2/token`;
 const ZOHO_REVOKE_URL = `https://accounts.${ZOHO_DOMAIN}/oauth/v2/token/revoke`;
@@ -148,7 +148,7 @@ export class ZohoProvider implements OAuthProvider {
         // Try to get Zoho Mail account ID
         try {
             const accountsResponse = await fetch(
-                "https://mail.zoho.com/api/accounts",
+                `https://mail.${ZOHO_DOMAIN}/api/accounts`,
                 {
                     headers: {
                         Authorization: `Zoho-oauthtoken ${accessToken}`,

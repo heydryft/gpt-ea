@@ -1,5 +1,9 @@
 import type { ActionHandler } from "./types";
 
+// Use the same data center as OAuth
+const ZOHO_DOMAIN = process.env.ZOHO_DOMAIN || "zoho.in";
+const ZOHO_MAIL_API_BASE = `https://mail.${ZOHO_DOMAIN}/api`;
+
 /**
  * Send an email via Zoho Mail
  */
@@ -34,7 +38,7 @@ export const sendEmail: ActionHandler = async (context, params) => {
 
         // Send via Zoho Mail API
         const response = await fetch(
-            `https://mail.zoho.com/api/accounts/${accountId}/messages`,
+            `${ZOHO_MAIL_API_BASE}/accounts/${accountId}/messages`,
             {
                 method: "POST",
                 headers: {
@@ -103,7 +107,7 @@ export const searchEmails: ActionHandler = async (context, params) => {
 
         // Search via Zoho Mail API
         const url = new URL(
-            `https://mail.zoho.com/api/accounts/${accountId}/messages/search`
+            `${ZOHO_MAIL_API_BASE}/accounts/${accountId}/messages/search`
         );
         url.searchParams.set("searchKey", query);
         url.searchParams.set("limit", maxResults.toString());
@@ -188,7 +192,7 @@ export const getEmailContent: ActionHandler = async (context, params) => {
                     if (!folderId) {
                         // Try to get message details from search
                         const searchUrl = new URL(
-                            `https://mail.zoho.com/api/accounts/${accountId}/messages/view`
+                            `${ZOHO_MAIL_API_BASE}/accounts/${accountId}/messages/view`
                         );
                         searchUrl.searchParams.set("messageId", messageId);
 
@@ -213,7 +217,7 @@ export const getEmailContent: ActionHandler = async (context, params) => {
 
                     // Fetch message content
                     const contentResponse = await fetch(
-                        `https://mail.zoho.com/api/accounts/${accountId}/folders/${folderId}/messages/${messageId}/content`,
+                        `${ZOHO_MAIL_API_BASE}/accounts/${accountId}/folders/${folderId}/messages/${messageId}/content`,
                         {
                             headers: {
                                 Authorization: `Zoho-oauthtoken ${context.accessToken}`,
