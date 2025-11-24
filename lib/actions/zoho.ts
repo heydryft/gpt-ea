@@ -86,14 +86,37 @@ export const sendEmail: ActionHandler = async (context, params) => {
  * Search for emails in Zoho Mail (metadata only - lightweight)
  */
 export const searchEmails: ActionHandler = async (context, params) => {
-    const { query, maxResults = 50 } = params;
+    const { query, maxResults = 50, fromDate, toDate } = params;
 
-    if (!query) {
-        return {
-            success: false,
-            error: "Missing required field: query",
-        };
+    // Build searchKey with date range if provided
+    let searchKey = query || "";
+
+    // If no query provided, use a broad search
+    if (!searchKey) {
+        searchKey = "entire:";
     }
+
+    // Add date range to searchKey if provided
+    // Format: fromDate:DD-MMM-YYYY::toDate:DD-MMM-YYYY
+    if (fromDate) {
+        const fromDateStr = new Date(fromDate).toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        }).replace(/ /g, '-');
+        searchKey += (searchKey && searchKey !== "entire:" ? "::" : "") + `fromDate:${fromDateStr}`;
+    }
+
+    if (toDate) {
+        const toDateStr = new Date(toDate).toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        }).replace(/ /g, '-');
+        searchKey += (searchKey ? "::" : "") + `toDate:${toDateStr}`;
+    }
+
+    console.log("Zoho search with searchKey:", searchKey);
 
     try {
         // Get account ID from metadata
@@ -109,8 +132,13 @@ export const searchEmails: ActionHandler = async (context, params) => {
         const url = new URL(
             `${ZOHO_MAIL_API_BASE}/accounts/${accountId}/messages/search`
         );
-        url.searchParams.set("searchKey", query);
+        url.searchParams.set("searchKey", searchKey);
         url.searchParams.set("limit", maxResults.toString());
+        // Set receivedTime to current timestamp to avoid the default 2-minute filter
+        // By default, Zoho only returns emails received in the last 2 minutes
+        url.searchParams.set("receivedTime", Date.now().toString());
+
+        console.log("Zoho search URL:", url.toString());
 
         const response = await fetch(url.toString(), {
             headers: {
@@ -120,6 +148,10 @@ export const searchEmails: ActionHandler = async (context, params) => {
 
         if (!response.ok) {
             const error = await response.text();
+            console.error("Zoho search failed:", {
+                status: response.status,
+                error
+            });
             return {
                 success: false,
                 error: `Failed to search emails: ${error}`,
@@ -128,6 +160,12 @@ export const searchEmails: ActionHandler = async (context, params) => {
 
         const data = await response.json();
         const messages = data.data || [];
+
+        console.log("Zoho search results:", {
+            count: messages.length,
+            searchKey,
+            accountId
+        });
 
         // Map Zoho message format to our standard format
         const formattedMessages = messages.map((msg: any) => ({

@@ -458,16 +458,22 @@ paths:
                   type: string
                 params:
                   type: object
-                  required:
-                    - query
                   properties:
                     query:
                       type: string
-                      description: Search query
+                      description: Search query using Zoho search syntax (optional - if not provided, returns all emails)
+                    fromDate:
+                      type: string
+                      format: date
+                      description: Start date for email search (ISO 8601 format, e.g., "2024-11-17")
+                    toDate:
+                      type: string
+                      format: date
+                      description: End date for email search (ISO 8601 format, e.g., "2024-11-24")
                     maxResults:
                       type: integer
                       default: 50
-                      description: Maximum number of results to return
+                      description: Maximum number of results to return (max 200)
       responses:
         "200":
           description: Search results (metadata only - subjects, senders, dates, snippets)
