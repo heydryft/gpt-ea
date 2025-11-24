@@ -132,18 +132,9 @@ export class ZohoProvider implements OAuthProvider {
     }
 
     async getUserInfo(accessToken: string): Promise<any> {
-        const response = await fetch(ZOHO_USER_INFO_URL, {
-            headers: {
-                Authorization: `Zoho-oauthtoken ${accessToken}`,
-            },
-        });
-
-        if (!response.ok) {
-            const error = await response.text();
-            throw new Error(`Failed to get user info: ${error}`);
-        }
-
-        const userInfo = await response.json();
+        // Skip general user info endpoint since we only have Mail scopes
+        // We'll get the email from the Mail accounts API instead
+        const userInfo: any = {};
 
         // Try to get Zoho Mail account ID
         try {
