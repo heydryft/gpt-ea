@@ -64,6 +64,9 @@ export class ZohoProvider implements OAuthProvider {
         url.searchParams.set("client_secret", clientSecret);
         url.searchParams.set("redirect_uri", redirectUri);
         url.searchParams.set("code", code);
+        url.searchParams.set("scope", ZOHO_SCOPES.join(","));
+
+        console.log("Zoho token exchange URL:", url.toString().replace(clientSecret, "***"));
 
         const response = await fetch(url.toString(), {
             method: "POST",
