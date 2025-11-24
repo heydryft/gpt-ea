@@ -57,19 +57,19 @@ export class ZohoProvider implements OAuthProvider {
     async exchangeCodeForToken(code: string): Promise<TokenResponse> {
         const { clientId, clientSecret, redirectUri } = this.getConfig();
 
-        // Zoho expects parameters as query string, not in body
-        const url = new URL(ZOHO_TOKEN_URL);
-        url.searchParams.set("grant_type", "authorization_code");
-        url.searchParams.set("client_id", clientId);
-        url.searchParams.set("client_secret", clientSecret);
-        url.searchParams.set("redirect_uri", redirectUri);
-        url.searchParams.set("code", code);
-        url.searchParams.set("scope", ZOHO_SCOPES.join(","));
-
-        console.log("Zoho token exchange URL:", url.toString().replace(clientSecret, "***"));
-
-        const response = await fetch(url.toString(), {
+        // Use form-encoded body as per working examples
+        const response = await fetch(ZOHO_TOKEN_URL, {
             method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({
+                grant_type: "authorization_code",
+                code,
+                client_id: clientId,
+                client_secret: clientSecret,
+                redirect_uri: redirectUri,
+            }).toString(),
         });
 
         if (!response.ok) {
@@ -95,15 +95,17 @@ export class ZohoProvider implements OAuthProvider {
     async refreshAccessToken(refreshToken: string): Promise<TokenResponse> {
         const { clientId, clientSecret } = this.getConfig();
 
-        // Zoho expects parameters as query string
-        const url = new URL(ZOHO_TOKEN_URL);
-        url.searchParams.set("grant_type", "refresh_token");
-        url.searchParams.set("client_id", clientId);
-        url.searchParams.set("client_secret", clientSecret);
-        url.searchParams.set("refresh_token", refreshToken);
-
-        const response = await fetch(url.toString(), {
+        const response = await fetch(ZOHO_TOKEN_URL, {
             method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({
+                grant_type: "refresh_token",
+                refresh_token: refreshToken,
+                client_id: clientId,
+                client_secret: clientSecret,
+            }).toString(),
         });
 
         if (!response.ok) {

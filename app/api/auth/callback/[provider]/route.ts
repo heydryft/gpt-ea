@@ -35,6 +35,7 @@ export async function GET(
 
         // Exchange code for access token IMMEDIATELY before it expires
         // Authorization codes expire in ~60 seconds and can only be used once
+        console.log(`Exchanging ${providerName} authorization code...`);
         let tokenResponse;
         try {
             tokenResponse = await provider.exchangeCodeForToken(code);
