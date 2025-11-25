@@ -23,6 +23,7 @@ paths:
   /api/gpt/create-auth-link:
     post:
       operationId: createAuthLink
+      x-openai-isConsequential: false
       summary: Create an OAuth authorization link for a provider
       description: Generates a link for the user to authorize access to an external service
       requestBody:
@@ -57,6 +58,7 @@ paths:
   /api/gpt/create-management-link:
     post:
       operationId: createManagementLink
+      x-openai-isConsequential: false
       summary: Create a link to the integrations management page
       description: Generates a secure link where users can view and manage all their integrations
       responses:
@@ -185,6 +187,7 @@ paths:
   /api/gpt/actions/gmail/search-emails:
     post:
       operationId: gmailSearchEmails
+      x-openai-isConsequential: false
       summary: Search for emails in Gmail
       requestBody:
         required: true
@@ -217,6 +220,7 @@ paths:
   /api/gpt/actions/gmail/get-email-content:
     post:
       operationId: gmailGetEmailContent
+      x-openai-isConsequential: false
       summary: Get full content of specific emails by ID
       description: Fetches the full body content for one or more email message IDs
       requestBody:
@@ -280,6 +284,7 @@ paths:
   /api/gpt/actions/slack/list-channels:
     post:
       operationId: slackListChannels
+      x-openai-isConsequential: false
       summary: List available Slack channels
       requestBody:
         required: true
@@ -344,6 +349,7 @@ paths:
   /api/gpt/actions/linear/search-issues:
     post:
       operationId: linearSearchIssues
+      x-openai-isConsequential: false
       summary: Search for issues in Linear
       requestBody:
         required: true
@@ -376,6 +382,7 @@ paths:
   /api/gpt/actions/linear/list-teams:
     post:
       operationId: linearListTeams
+      x-openai-isConsequential: false
       summary: List all Linear teams
       requestBody:
         required: true
@@ -443,6 +450,7 @@ paths:
   /api/gpt/actions/zoho/search-emails:
     post:
       operationId: zohoSearchEmails
+      x-openai-isConsequential: false
       summary: Search for emails in Zoho Mail
       requestBody:
         required: true
@@ -481,6 +489,7 @@ paths:
   /api/gpt/actions/zoho/get-email-content:
     post:
       operationId: zohoGetEmailContent
+      x-openai-isConsequential: false
       summary: Get full content of specific emails by ID
       description: Fetches the full body content for one or more email message IDs from Zoho Mail
       requestBody:
@@ -517,6 +526,7 @@ paths:
   /api/gpt/search-all-emails:
     post:
       operationId: searchAllEmails
+      x-openai-isConsequential: false
       summary: Search emails across all connected Gmail accounts
       description: Searches for emails in all enabled Gmail accounts and returns aggregated results
       requestBody:

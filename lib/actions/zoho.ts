@@ -324,13 +324,27 @@ export const getEmailContent: ActionHandler = async (context, params) => {
                     const contentData = await contentResponse.json();
                     const msgData = contentData.data;
 
+                    // Parse receivedTime safely (same logic as searchEmails)
+                    let dateStr = new Date().toISOString();
+                    if (msgData.receivedTime) {
+                        const timestamp = Number(msgData.receivedTime);
+                        if (!isNaN(timestamp)) {
+                            dateStr = new Date(timestamp).toISOString();
+                        } else {
+                            const d = new Date(msgData.receivedTime);
+                            if (!isNaN(d.getTime())) {
+                                dateStr = d.toISOString();
+                            }
+                        }
+                    }
+
                     return {
                         id: messageId,
                         threadId: msgData.conversationId,
                         subject: msgData.subject || "(No subject)",
                         from: msgData.fromAddress,
                         to: msgData.toAddress,
-                        date: new Date(msgData.receivedTime).toISOString(),
+                        date: dateStr,
                         body: msgData.content || msgData.summary || "(No content)",
                     };
                 } catch (error) {
