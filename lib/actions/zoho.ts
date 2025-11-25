@@ -99,26 +99,26 @@ export const searchEmails: ActionHandler = async (context, params) => {
 
     // Add date range to searchKey if provided
     // Format: fromDate:DD-MMM-YYYYtoDate:DD-MMM-YYYY (no separator!)
+    // Example: fromDate:12-Sep-2017toDate:30-Jun-2018
     if (fromDate || toDate) {
         let dateRange = "";
 
+        // Helper to format date as DD-MMM-YYYY (e.g., 12-Sep-2017)
+        const formatDate = (dateStr: string) => {
+            const d = new Date(dateStr);
+            const day = d.getDate().toString().padStart(2, '0');
+            const month = d.toLocaleString('en-GB', { month: 'short' });
+            const year = d.getFullYear();
+            return `${day}-${month}-${year}`;
+        };
+
         if (fromDate) {
-            const fromDateStr = new Date(fromDate).toLocaleDateString('en-GB', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric'
-            }).replace(/ /g, '-');
-            dateRange = `fromDate:${fromDateStr}`;
+            dateRange = `fromDate:${formatDate(fromDate)}`;
         }
 
         if (toDate) {
-            const toDateStr = new Date(toDate).toLocaleDateString('en-GB', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric'
-            }).replace(/ /g, '-');
-            // Concatenate directly without :: separator
-            dateRange += `toDate:${toDateStr}`;
+            // Concatenate directly without :: separator as per Zoho docs
+            dateRange += `toDate:${formatDate(toDate)}`;
         }
 
         // Add date range to searchKey
@@ -132,9 +132,7 @@ export const searchEmails: ActionHandler = async (context, params) => {
 
     // If still no searchKey, use a wildcard search
     if (!searchKey) {
-        // "entire:*" is commonly used for "everything" in search syntaxes,
-        // or we can try just listing recent emails if searchKey is mandatory.
-        // Let's try "entire:*" as a fallback.
+        // "entire:*" is commonly used for "everything" in search syntaxes
         searchKey = "entire:*";
     }
 
