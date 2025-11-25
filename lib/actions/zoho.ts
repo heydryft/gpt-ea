@@ -91,29 +91,43 @@ export const searchEmails: ActionHandler = async (context, params) => {
     // Build searchKey with date range if provided
     let searchKey = query || "";
 
-    // If no query provided, use a broad search
+    // Add date range to searchKey if provided
+    // CRITICAL: fromDate and toDate must be concatenated WITHOUT :: between them
+    // Format: fromDate:DD-MMM-YYYYtoDate:DD-MMM-YYYY (no separator!)
+    // Example: fromDate:12-Sep-2017toDate:30-Jun-2018
+    if (fromDate || toDate) {
+        let dateRange = "";
+
+        if (fromDate) {
+            const fromDateStr = new Date(fromDate).toLocaleDateString('en-GB', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
+            }).replace(/ /g, '-');
+            dateRange = `fromDate:${fromDateStr}`;
+        }
+
+        if (toDate) {
+            const toDateStr = new Date(toDate).toLocaleDateString('en-GB', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
+            }).replace(/ /g, '-');
+            // Concatenate directly without :: separator
+            dateRange += `toDate:${toDateStr}`;
+        }
+
+        // Add date range to searchKey with :: separator only if there's already a query
+        if (searchKey) {
+            searchKey += `::${dateRange}`;
+        } else {
+            searchKey = dateRange;
+        }
+    }
+
+    // If still no searchKey, use a broad search
     if (!searchKey) {
         searchKey = "entire:";
-    }
-
-    // Add date range to searchKey if provided
-    // Format: fromDate:DD-MMM-YYYY::toDate:DD-MMM-YYYY
-    if (fromDate) {
-        const fromDateStr = new Date(fromDate).toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric'
-        }).replace(/ /g, '-');
-        searchKey += (searchKey && searchKey !== "entire:" ? "::" : "") + `fromDate:${fromDateStr}`;
-    }
-
-    if (toDate) {
-        const toDateStr = new Date(toDate).toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric'
-        }).replace(/ /g, '-');
-        searchKey += (searchKey ? "::" : "") + `toDate:${toDateStr}`;
     }
 
     console.log("Zoho search with searchKey:", searchKey);
@@ -134,10 +148,19 @@ export const searchEmails: ActionHandler = async (context, params) => {
         );
         url.searchParams.set("searchKey", searchKey);
         url.searchParams.set("limit", maxResults.toString());
-        // Set receivedTime to current timestamp to avoid the default 2-minute filter
-        // By default, Zoho only returns emails received in the last 2 minutes
-        url.searchParams.set("receivedTime", Date.now().toString());
 
+        // CRITICAL: receivedTime specifies the time BEFORE which emails were received
+        // Default is (now - 2 minutes), which means it only returns emails older than 2 minutes
+        // We set it to a future timestamp to ensure we get ALL emails up to now
+        const futureTimestamp = Date.now() + (24 * 60 * 60 * 1000); // 24 hours in the future
+        url.searchParams.set("receivedTime", futureTimestamp.toString());
+
+        console.log("Zoho search params:", {
+            searchKey,
+            limit: maxResults,
+            receivedTime: futureTimestamp,
+            accountId
+        });
         console.log("Zoho search URL:", url.toString());
 
         const response = await fetch(url.toString(), {
