@@ -98,8 +98,8 @@ export const searchEmails: ActionHandler = async (context, params) => {
     }
 
     // Add date range to searchKey if provided
-    // Format: fromDate:DD-MMM-YYYYtoDate:DD-MMM-YYYY (no separator!)
-    // Example: fromDate:12-Sep-2017toDate:30-Jun-2018
+    // Format: fromDate:DD-MMM-YYYY::toDate:DD-MMM-YYYY (using :: separator)
+    // Example: fromDate:12-Sep-2017::toDate:30-Jun-2018
     if (fromDate || toDate) {
         let dateRange = "";
 
@@ -117,8 +117,12 @@ export const searchEmails: ActionHandler = async (context, params) => {
         }
 
         if (toDate) {
-            // Concatenate directly without :: separator as per Zoho docs
-            dateRange += `toDate:${formatDate(toDate)}`;
+            // Use :: separator if we already have a fromDate
+            if (dateRange) {
+                dateRange += `::toDate:${formatDate(toDate)}`;
+            } else {
+                dateRange = `toDate:${formatDate(toDate)}`;
+            }
         }
 
         // Add date range to searchKey
@@ -135,6 +139,12 @@ export const searchEmails: ActionHandler = async (context, params) => {
         // "entire:*" is commonly used for "everything" in search syntaxes
         searchKey = "entire:*";
     }
+
+    // If we have a date range but no query, we might want to ensure we search "entire:*"
+    // combined with the date range, to be explicit about searching all emails in that range.
+    // However, just date range should work. But let's be safe.
+    // If searchKey is ONLY the date range, prepend entire:*::
+    // Actually, let's just leave it as is. fromDate:X::toDate:Y is a valid searchKey.
 
     console.log("Zoho search with searchKey:", searchKey);
 
