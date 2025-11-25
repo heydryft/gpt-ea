@@ -91,19 +91,10 @@ export const searchEmails: ActionHandler = async (context, params) => {
     // Build searchKey
     // We use "entire" to search everything (header, body, etc.)
     // If a query is provided, we search for that.
-    // If no query is provided, we search for everything (entire:*)
     let searchKey = "";
 
     if (query) {
         searchKey = `entire:${query}`;
-    } else {
-        // If no query, we still need a valid searchKey.
-        // "entire:" with an empty string might not work as expected for "all emails",
-        // but typically users provide a query.
-        // If we want *all* emails, we might need a different approach or a wildcard.
-        // However, the previous code used "entire:" as a fallback.
-        // Let's use "entire:" which usually matches everything or latest.
-        searchKey = "entire:";
     }
 
     // Add date range to searchKey if provided
@@ -132,18 +123,19 @@ export const searchEmails: ActionHandler = async (context, params) => {
 
         // Add date range to searchKey
         // If we already have a search term, append with ::
-        if (searchKey && searchKey !== "entire:") {
-            searchKey += `::${dateRange}`;
-        } else if (searchKey === "entire:") {
-            // If it was just the fallback, replace/append
-            // "entire: ::fromDate..." might be invalid.
-            // Better to just use the date range if no query.
-            // But "entire:" is special.
-            // Let's try appending to entire:
+        if (searchKey) {
             searchKey += `::${dateRange}`;
         } else {
             searchKey = dateRange;
         }
+    }
+
+    // If still no searchKey, use a wildcard search
+    if (!searchKey) {
+        // "entire:*" is commonly used for "everything" in search syntaxes,
+        // or we can try just listing recent emails if searchKey is mandatory.
+        // Let's try "entire:*" as a fallback.
+        searchKey = "entire:*";
     }
 
     console.log("Zoho search with searchKey:", searchKey);
