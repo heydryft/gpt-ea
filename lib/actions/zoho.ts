@@ -192,8 +192,46 @@ export const searchEmails: ActionHandler = async (context, params) => {
         console.log("Zoho search results:", {
             count: messages.length,
             searchKey,
-            accountId
+            accountId,
+            hasData: !!data.data,
+            responseStatus: data.status
         });
+
+        // DEBUG: If date search returns 0, try a simple search to see if ANY emails exist
+        if (messages.length === 0 && (fromDate || toDate)) {
+            console.log("Date search returned 0, testing if ANY emails exist with simple search...");
+            const testUrl = new URL(
+                `${ZOHO_MAIL_API_BASE}/accounts/${accountId}/messages/search`
+            );
+            testUrl.searchParams.set("searchKey", "entire:");
+            testUrl.searchParams.set("limit", "5");
+            testUrl.searchParams.set("receivedTime", (Date.now() + 24 * 60 * 60 * 1000).toString());
+
+            const testResponse = await fetch(testUrl.toString(), {
+                headers: {
+                    Authorization: `Zoho-oauthtoken ${context.accessToken}`,
+                },
+            });
+
+            if (testResponse.ok) {
+                const testData = await testResponse.json();
+                const testMessages = testData.data || [];
+                console.log("Simple 'entire:' search test results:", {
+                    count: testMessages.length,
+                    message: testMessages.length > 0
+                        ? "Emails exist but date filter may be wrong"
+                        : "No emails found in account at all"
+                });
+
+                if (testMessages.length > 0) {
+                    console.log("Sample email dates:", testMessages.slice(0, 3).map((m: any) => ({
+                        subject: m.subject,
+                        receivedTime: m.receivedTime,
+                        date: new Date(m.receivedTime).toISOString()
+                    })));
+                }
+            }
+        }
 
         // FALLBACK: If search returns no results, try listing from inbox folder
         // This is more reliable than search for getting recent emails
