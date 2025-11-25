@@ -149,16 +149,21 @@ export const searchEmails: ActionHandler = async (context, params) => {
         url.searchParams.set("searchKey", searchKey);
         url.searchParams.set("limit", maxResults.toString());
 
-        // CRITICAL: receivedTime specifies the time BEFORE which emails were received
-        // Default is (now - 2 minutes), which means it only returns emails older than 2 minutes
-        // We set it to a future timestamp to ensure we get ALL emails up to now
-        const futureTimestamp = Date.now() + (24 * 60 * 60 * 1000); // 24 hours in the future
-        url.searchParams.set("receivedTime", futureTimestamp.toString());
+        // CRITICAL: Only set receivedTime if NO date range is specified in searchKey
+        // When fromDate/toDate are in searchKey, receivedTime may conflict with them
+        // receivedTime specifies the time BEFORE which emails were received (upper bound)
+        // Default is (now - 2 minutes), so we need to override it
+        let receivedTime: number | undefined;
+        if (!fromDate && !toDate) {
+            // No date range in searchKey, so set receivedTime to future to get all emails
+            receivedTime = Date.now() + (24 * 60 * 60 * 1000); // 24 hours in the future
+            url.searchParams.set("receivedTime", receivedTime.toString());
+        }
 
         console.log("Zoho search params:", {
             searchKey,
             limit: maxResults,
-            receivedTime: futureTimestamp,
+            receivedTime: receivedTime || "not set (using searchKey date range)",
             accountId
         });
         console.log("Zoho search URL:", url.toString());
@@ -182,13 +187,82 @@ export const searchEmails: ActionHandler = async (context, params) => {
         }
 
         const data = await response.json();
-        const messages = data.data || [];
+        let messages = data.data || [];
 
         console.log("Zoho search results:", {
             count: messages.length,
             searchKey,
             accountId
         });
+
+        // FALLBACK: If search returns no results, try listing from inbox folder
+        // This is more reliable than search for getting recent emails
+        if (messages.length === 0 && !query) {
+            console.log("Search returned 0 results, trying inbox folder list as fallback...");
+
+            try {
+                // First, get folders to find inbox folderId
+                const foldersResponse = await fetch(
+                    `${ZOHO_MAIL_API_BASE}/accounts/${accountId}/folders`,
+                    {
+                        headers: {
+                            Authorization: `Zoho-oauthtoken ${context.accessToken}`,
+                        },
+                    }
+                );
+
+                if (foldersResponse.ok) {
+                    const foldersData = await foldersResponse.json();
+                    const folders = foldersData.data || [];
+                    const inboxFolder = folders.find((f: any) => f.folderType === "Inbox");
+
+                    if (inboxFolder) {
+                        console.log("Found inbox folder:", inboxFolder.folderId);
+
+                        // List emails from inbox
+                        const listUrl = new URL(
+                            `${ZOHO_MAIL_API_BASE}/accounts/${accountId}/messages/view`
+                        );
+                        listUrl.searchParams.set("folderId", inboxFolder.folderId);
+                        listUrl.searchParams.set("limit", maxResults.toString());
+                        listUrl.searchParams.set("sortBy", "date");
+                        listUrl.searchParams.set("sortorder", "false"); // descending
+
+                        const listResponse = await fetch(listUrl.toString(), {
+                            headers: {
+                                Authorization: `Zoho-oauthtoken ${context.accessToken}`,
+                            },
+                        });
+
+                        if (listResponse.ok) {
+                            const listData = await listResponse.json();
+                            messages = listData.data || [];
+
+                            console.log("Inbox list results:", {
+                                count: messages.length,
+                                folderId: inboxFolder.folderId
+                            });
+
+                            // Filter by date range if provided
+                            if (fromDate || toDate) {
+                                const fromTime = fromDate ? new Date(fromDate).getTime() : 0;
+                                const toTime = toDate ? new Date(toDate).getTime() : Date.now();
+
+                                messages = messages.filter((msg: any) => {
+                                    const msgTime = msg.receivedTime;
+                                    return msgTime >= fromTime && msgTime <= toTime;
+                                });
+
+                                console.log("After date filtering:", messages.length);
+                            }
+                        }
+                    }
+                }
+            } catch (fallbackError) {
+                console.error("Fallback inbox list failed:", fallbackError);
+                // Continue with empty results from search
+            }
+        }
 
         // Map Zoho message format to our standard format
         const formattedMessages = messages.map((msg: any) => ({
