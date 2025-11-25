@@ -196,16 +196,23 @@ export const searchEmails: ActionHandler = async (context, params) => {
         });
 
         // Map Zoho message format to our standard format
-        const formattedMessages = messages.map((msg: any) => ({
-            id: msg.messageId,
-            threadId: msg.conversationId,
-            subject: msg.subject || "(No subject)",
-            from: msg.fromAddress,
-            to: msg.toAddress,
-            date: new Date(msg.receivedTime).toISOString(),
-            snippet: msg.summary || "",
-            folderId: msg.folderId, // Store for later retrieval
-        }));
+        const formattedMessages = messages.map((msg: any) => {
+            try {
+                return {
+                    id: msg.messageId,
+                    threadId: msg.conversationId,
+                    subject: msg.subject || "(No subject)",
+                    from: msg.fromAddress,
+                    to: msg.toAddress,
+                    date: msg.receivedTime ? new Date(msg.receivedTime).toISOString() : new Date().toISOString(),
+                    snippet: msg.summary || "",
+                    folderId: msg.folderId, // Store for later retrieval
+                };
+            } catch (err) {
+                console.error("Error mapping message:", msg.messageId, err);
+                return null;
+            }
+        }).filter(Boolean); // Remove failed mappings
 
         return {
             success: true,
