@@ -252,6 +252,7 @@ export const searchEmails: ActionHandler = async (context, params) => {
                 if (foldersResponse.ok) {
                     const foldersData = await foldersResponse.json();
                     const folders = foldersData.data || [];
+                    console.log("Folders found:", folders.length, folders.map((f: any) => f.folderType));
                     const inboxFolder = folders.find((f: any) => f.folderType === "Inbox");
 
                     if (inboxFolder) {
@@ -278,8 +279,17 @@ export const searchEmails: ActionHandler = async (context, params) => {
 
                             console.log("Inbox list results:", {
                                 count: messages.length,
-                                folderId: inboxFolder.folderId
+                                folderId: inboxFolder.folderId,
+                                message: messages.length > 0 ? "Found emails in inbox" : "Inbox is empty"
                             });
+
+                            if (messages.length > 0) {
+                                console.log("Sample inbox emails:", messages.slice(0, 3).map((m: any) => ({
+                                    subject: m.subject,
+                                    receivedTime: m.receivedTime,
+                                    date: new Date(m.receivedTime).toISOString()
+                                })));
+                            }
 
                             // Filter by date range if provided
                             if (fromDate || toDate) {
@@ -291,7 +301,13 @@ export const searchEmails: ActionHandler = async (context, params) => {
                                     return msgTime >= fromTime && msgTime <= toTime;
                                 });
 
-                                console.log("After date filtering:", messages.length);
+                                console.log("After date filtering:", {
+                                    count: messages.length,
+                                    fromDate,
+                                    toDate,
+                                    fromTime,
+                                    toTime
+                                });
                             }
                         }
                     }
