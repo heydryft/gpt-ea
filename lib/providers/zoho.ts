@@ -11,6 +11,7 @@ const ZOHO_USER_INFO_URL = `https://accounts.${ZOHO_DOMAIN}/oauth/user/info`;
 const ZOHO_SCOPES = [
     "ZohoMail.messages.ALL",
     "ZohoMail.accounts.READ",
+    "ZohoMail.folders.READ",
 ];
 
 export class ZohoProvider implements OAuthProvider {

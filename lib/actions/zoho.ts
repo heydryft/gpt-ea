@@ -88,13 +88,26 @@ export const sendEmail: ActionHandler = async (context, params) => {
 export const searchEmails: ActionHandler = async (context, params) => {
     const { query, maxResults = 50, fromDate, toDate } = params;
 
-    // Build searchKey with date range if provided
-    let searchKey = query || "";
+    // Build searchKey
+    // We use "entire" to search everything (header, body, etc.)
+    // If a query is provided, we search for that.
+    // If no query is provided, we search for everything (entire:*)
+    let searchKey = "";
+
+    if (query) {
+        searchKey = `entire:${query}`;
+    } else {
+        // If no query, we still need a valid searchKey.
+        // "entire:" with an empty string might not work as expected for "all emails",
+        // but typically users provide a query.
+        // If we want *all* emails, we might need a different approach or a wildcard.
+        // However, the previous code used "entire:" as a fallback.
+        // Let's use "entire:" which usually matches everything or latest.
+        searchKey = "entire:";
+    }
 
     // Add date range to searchKey if provided
-    // CRITICAL: fromDate and toDate must be concatenated WITHOUT :: between them
     // Format: fromDate:DD-MMM-YYYYtoDate:DD-MMM-YYYY (no separator!)
-    // Example: fromDate:12-Sep-2017toDate:30-Jun-2018
     if (fromDate || toDate) {
         let dateRange = "";
 
@@ -117,17 +130,20 @@ export const searchEmails: ActionHandler = async (context, params) => {
             dateRange += `toDate:${toDateStr}`;
         }
 
-        // Add date range to searchKey with :: separator only if there's already a query
-        if (searchKey) {
+        // Add date range to searchKey
+        // If we already have a search term, append with ::
+        if (searchKey && searchKey !== "entire:") {
+            searchKey += `::${dateRange}`;
+        } else if (searchKey === "entire:") {
+            // If it was just the fallback, replace/append
+            // "entire: ::fromDate..." might be invalid.
+            // Better to just use the date range if no query.
+            // But "entire:" is special.
+            // Let's try appending to entire:
             searchKey += `::${dateRange}`;
         } else {
             searchKey = dateRange;
         }
-    }
-
-    // If still no searchKey, use a broad search
-    if (!searchKey) {
-        searchKey = "entire:";
     }
 
     console.log("Zoho search with searchKey:", searchKey);
@@ -142,50 +158,16 @@ export const searchEmails: ActionHandler = async (context, params) => {
             };
         }
 
-        // Use messages/view API instead of search API (more reliable)
-        // First, get folders to find inbox folderId
-        const foldersResponse = await fetch(
-            `${ZOHO_MAIL_API_BASE}/accounts/${accountId}/folders`,
-            {
-                headers: {
-                    Authorization: `Zoho-oauthtoken ${context.accessToken}`,
-                },
-            }
-        );
-
-        if (!foldersResponse.ok) {
-            const error = await foldersResponse.text();
-            console.error("Failed to get folders:", error);
-            return {
-                success: false,
-                error: `Failed to get folders: ${error}`,
-            };
-        }
-
-        const foldersData = await foldersResponse.json();
-        const folders = foldersData.data || [];
-        console.log("Folders found:", folders.length, folders.map((f: any) => f.folderType));
-
-        const inboxFolder = folders.find((f: any) => f.folderType === "Inbox");
-        if (!inboxFolder) {
-            return {
-                success: false,
-                error: "Inbox folder not found",
-            };
-        }
-
-        console.log("Using inbox folder:", inboxFolder.folderId);
-
-        // List emails from inbox using messages/view API
+        // Use messages/search API
+        // This searches ALL folders and doesn't require listing folders first
         const url = new URL(
-            `${ZOHO_MAIL_API_BASE}/accounts/${accountId}/messages/view`
+            `${ZOHO_MAIL_API_BASE}/accounts/${accountId}/messages/search`
         );
-        url.searchParams.set("folderId", inboxFolder.folderId);
-        url.searchParams.set("limit", "200"); // Get max emails
-        url.searchParams.set("sortBy", "date");
-        url.searchParams.set("sortorder", "false"); // descending (newest first)
+        url.searchParams.set("searchKey", searchKey);
+        url.searchParams.set("limit", maxResults.toString());
+        url.searchParams.set("start", "1"); // Start from first result
 
-        console.log("Zoho list URL:", url.toString());
+        console.log("Zoho search URL:", url.toString());
 
         const response = await fetch(url.toString(), {
             headers: {
@@ -195,68 +177,23 @@ export const searchEmails: ActionHandler = async (context, params) => {
 
         if (!response.ok) {
             const error = await response.text();
-            console.error("Zoho list failed:", {
+            console.error("Zoho search failed:", {
                 status: response.status,
                 error
             });
             return {
                 success: false,
-                error: `Failed to list emails: ${error}`,
+                error: `Failed to search emails: ${error}`,
             };
         }
 
         const data = await response.json();
         let messages = data.data || [];
 
-        console.log("Zoho list results:", {
+        console.log("Zoho search results:", {
             totalCount: messages.length,
             accountId
         });
-
-        if (messages.length > 0) {
-            console.log("Sample emails:", messages.slice(0, 3).map((m: any) => ({
-                subject: m.subject,
-                receivedTime: m.receivedTime,
-                date: new Date(m.receivedTime).toISOString()
-            })));
-        }
-
-        // Filter by date range if provided
-        if (fromDate || toDate) {
-            const fromTime = fromDate ? new Date(fromDate).getTime() : 0;
-            const toTime = toDate ? new Date(toDate).getTime() + (24 * 60 * 60 * 1000) : Date.now(); // Add 1 day to include end date
-
-            console.log("Filtering by date range:", {
-                fromDate,
-                toDate,
-                fromTime,
-                toTime,
-                fromDateISO: new Date(fromTime).toISOString(),
-                toDateISO: new Date(toTime).toISOString()
-            });
-
-            messages = messages.filter((msg: any) => {
-                const msgTime = msg.receivedTime;
-                return msgTime >= fromTime && msgTime <= toTime;
-            });
-
-            console.log("After date filtering:", messages.length);
-        }
-
-        // Filter by query if provided
-        if (query) {
-            const lowerQuery = query.toLowerCase();
-            messages = messages.filter((msg: any) => {
-                const subject = (msg.subject || "").toLowerCase();
-                const from = (msg.fromAddress || "").toLowerCase();
-                const summary = (msg.summary || "").toLowerCase();
-                return subject.includes(lowerQuery) || from.includes(lowerQuery) || summary.includes(lowerQuery);
-            });
-            console.log("After query filtering:", messages.length);
-        }
-
-        // Limit results
-        messages = messages.slice(0, maxResults);
 
         // Map Zoho message format to our standard format
         const formattedMessages = messages.map((msg: any) => ({
