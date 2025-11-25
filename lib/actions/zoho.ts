@@ -198,13 +198,29 @@ export const searchEmails: ActionHandler = async (context, params) => {
         // Map Zoho message format to our standard format
         const formattedMessages = messages.map((msg: any) => {
             try {
+                // receivedTime is typically a Long (milliseconds) but might be returned as a string
+                // new Date("1234567890000") is invalid in JS, so we must convert to number
+                let dateStr = new Date().toISOString();
+                if (msg.receivedTime) {
+                    const timestamp = Number(msg.receivedTime);
+                    if (!isNaN(timestamp)) {
+                        dateStr = new Date(timestamp).toISOString();
+                    } else {
+                        // Try parsing as date string if not a number
+                        const d = new Date(msg.receivedTime);
+                        if (!isNaN(d.getTime())) {
+                            dateStr = d.toISOString();
+                        }
+                    }
+                }
+
                 return {
                     id: msg.messageId,
                     threadId: msg.conversationId,
                     subject: msg.subject || "(No subject)",
                     from: msg.fromAddress,
                     to: msg.toAddress,
-                    date: msg.receivedTime ? new Date(msg.receivedTime).toISOString() : new Date().toISOString(),
+                    date: dateStr,
                     snippet: msg.summary || "",
                     folderId: msg.folderId, // Store for later retrieval
                 };
